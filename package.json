@@ -43,10 +43,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/webpack-log-forward-plugin.git"
+    "url": "https://github.com/davidtranjs/webpack-log-forward-plugin.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/webpack-log-forward-plugin/issues"
+    "url": "https://github.com/davidtranjs/webpack-log-forward-plugin/issues"
   },
-  "homepage": "https://github.com/yourusername/webpack-log-forward-plugin#readme"
+  "homepage": "https://github.com/davidtranjs/webpack-log-forward-plugin#readme"
 } 
