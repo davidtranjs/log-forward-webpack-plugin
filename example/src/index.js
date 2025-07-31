@@ -2,4 +2,4 @@
 console.log('WebpackLogForwardPlugin example loaded!');
 
 // Export something to make webpack happy
-export default {}; 
+export default {};

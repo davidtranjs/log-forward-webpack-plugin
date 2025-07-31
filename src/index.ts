@@ -1,4 +1,9 @@
-import { Compiler, WebpackPluginInstance, Compilation, sources } from "webpack";
+import {
+  Compilation,
+  type Compiler,
+  sources,
+  type WebpackPluginInstance,
+} from "webpack";
 
 export interface LogForwardOptions {
   /**
@@ -31,6 +36,11 @@ export class WebpackLogForwardPlugin implements WebpackPluginInstance {
     };
   }
 
+  // Public getter for testing purposes
+  getOptions(): Required<LogForwardOptions> {
+    return { ...this.options };
+  }
+
   apply(compiler: Compiler): void {
     // Only apply in development mode
     if (compiler.options.mode !== "development") {
@@ -39,6 +49,13 @@ export class WebpackLogForwardPlugin implements WebpackPluginInstance {
 
     if (!this.options.enabled) {
       return;
+    }
+
+    if (!compiler.options.devServer) {
+      // add log to tell user should not use this plugin in production
+      console.warn(
+        "[WebpackLogForwardPlugin] This plugin suppose to be used with webpack dev server only, please DO NOT use it in production mode"
+      );
     }
 
     // Setup webpack dev server middleware
@@ -61,7 +78,7 @@ export class WebpackLogForwardPlugin implements WebpackPluginInstance {
               if (assetName.endsWith(".js")) {
                 const asset = assets[assetName];
                 const newSource = new sources.ConcatSource(
-                  new sources.RawSource(logForwardScript + "\n"),
+                  new sources.RawSource(`${logForwardScript}\n`),
                   asset
                 );
                 compilation.updateAsset(assetName, newSource);

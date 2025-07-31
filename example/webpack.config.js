@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('node:path');
 const { WebpackLogForwardPlugin } = require('../dist/index.js');
 
 module.exports = {
@@ -6,22 +6,22 @@ module.exports = {
   entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.js',
+    filename: 'bundle.js'
   },
   devServer: {
     static: {
-      directory: path.join(__dirname, 'public'),
+      directory: path.join(__dirname, 'public')
     },
     compress: true,
     port: 3001,
-    hot: true,
+    hot: true
   },
   plugins: [
     new WebpackLogForwardPlugin({
       // Forward all log types for testing
       logTypes: ['log', 'info', 'warn', 'error', 'debug'],
       prefix: '[Example App]',
-      includeTimestamp: true,
-    }),
-  ],
-}; 
+      includeTimestamp: true
+    })
+  ]
+};
