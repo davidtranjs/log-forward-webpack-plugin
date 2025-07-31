@@ -16,7 +16,7 @@ A webpack plugin that forwards browser console logs to the terminal during devel
 ## Installation
 
 ```bash
-pnpm add webpack-log-forward-plugin --save-dev
+pnpm add @davidtranjs/webpack-log-forward-plugin --save-dev
 ```
 
 ## Usage
@@ -24,7 +24,7 @@ pnpm add webpack-log-forward-plugin --save-dev
 ### Basic Usage
 
 ```javascript
-const WebpackLogForwardPlugin = require('webpack-log-forward-plugin');
+const WebpackLogForwardPlugin = require('@davidtranjs/webpack-log-forward-plugin');
 
 module.exports = {
   mode: 'development',
@@ -40,7 +40,7 @@ module.exports = {
 ### Advanced Usage with Configuration
 
 ```javascript
-const WebpackLogForwardPlugin = require('webpack-log-forward-plugin');
+const WebpackLogForwardPlugin = require('@davidtranjs/webpack-log-forward-plugin');
 
 module.exports = {
   mode: 'development',
@@ -151,4 +151,49 @@ MIT
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request 
+5. Open a Pull Request
+
+## Publishing
+
+This package is automatically published to npm when changes are pushed to the main branch. The publishing process is handled by GitHub Actions.
+
+### Prerequisites
+
+1. **NPM Token**: You need to add an NPM authentication token to your GitHub repository secrets:
+   - Go to your GitHub repository → Settings → Secrets and variables → Actions
+   - Add a new secret named `NPM_TOKEN`
+   - Get your NPM token from [npmjs.com](https://www.npmjs.com/settings/tokens)
+
+2. **Repository Configuration**: Update the repository URLs in `package.json`:
+   ```json
+   {
+     "repository": {
+       "type": "git",
+       "url": "https://github.com/davidtranjs/webpack-log-forward-plugin.git"
+     },
+     "bugs": {
+       "url": "https://github.com/davidtranjs/webpack-log-forward-plugin/issues"
+     },
+     "homepage": "https://github.com/davidtranjs/webpack-log-forward-plugin#readme"
+   }
+   ```
+
+### Publishing Process
+
+1. **Update Version**: Update the version in `package.json`
+2. **Push to Main**: Push your changes to the main branch
+3. **Automatic Publishing**: The GitHub Action will automatically:
+   - Build the TypeScript code
+   - Publish to npm
+
+### Manual Publishing
+
+If you need to publish manually:
+
+```bash
+# Build the package
+pnpm run build
+
+# Publish to npm
+pnpm publish
+``` 

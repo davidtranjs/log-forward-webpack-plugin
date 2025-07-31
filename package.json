@@ -1,5 +1,5 @@
 {
-  "name": "webpack-log-forward-plugin",
+  "name": "@davidtranjs/webpack-log-forward-plugin",
   "version": "1.0.0",
   "description": "A webpack plugin that forwards browser console logs to terminal during development",
   "main": "dist/index.js",
