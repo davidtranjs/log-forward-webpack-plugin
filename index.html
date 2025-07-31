@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown.min.css" integrity="sha512-BrOPA520KmDMqieeM7XFe6a3u3Sb3F1JBaQnrIAmWg3EYrciJ+Qqe6ZcKCdfPv26rGcgTrJnZ/IdQEct8h3Zhw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    body {
+      box-sizing: border-box;
+      padding: 40px;
+    }
+    .markdown-body {
+      max-width: 800px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+  <article class="markdown-body">
+    <h1>Webpack Log Forward Plugin</h1>
+<p>A webpack plugin that forwards browser console logs to terminal during development.</p>
+<h2>Features</h2>
+<ul>
+<li>Forwards browser console logs (log, info, warn, error, debug) to terminal</li>
+<li>Configurable log types, prefix, and timestamp options</li>
+<li>Works with webpack-dev-server</li>
+<li>Non-intrusive - preserves original console behavior</li>
+<li>TypeScript support</li>
+</ul>
+<h2>Installation</h2>
+<pre><code class="language-bash">npm install @davidtranjs/webpack-log-forward-plugin
+</code></pre>
+<h2>Usage</h2>
+<pre><code class="language-javascript">const { WebpackLogForwardPlugin } = require(&#39;@davidtranjs/webpack-log-forward-plugin&#39;);
+
+module.exports = {
+  // ... other webpack config
+  plugins: [
+    new WebpackLogForwardPlugin({
+      logTypes: [&#39;log&#39;, &#39;info&#39;, &#39;warn&#39;, &#39;error&#39;, &#39;debug&#39;], // optional
+      prefix: &#39;[Browser]&#39;, // optional
+      includeTimestamp: true, // optional
+      enabled: true // optional
+    })
+  ]
+};
+</code></pre>
+<h2>Development</h2>
+<p>This project uses Biome.js for linting and formatting. To work on this project:</p>
+<h3>Prerequisites</h3>
+<ul>
+<li>Node.js 18+</li>
+<li>pnpm (enforced via <code>preinstall</code> script)</li>
+</ul>
+<h3>Setup</h3>
+<pre><code class="language-bash">pnpm install
+</code></pre>
+<h3>Available Scripts</h3>
+<ul>
+<li><code>pnpm build</code> - Build the TypeScript source</li>
+<li><code>pnpm dev</code> - Watch mode for development</li>
+<li><code>pnpm test</code> - Run tests</li>
+<li><code>pnpm lint</code> - Check code with Biome</li>
+<li><code>pnpm lint:fix</code> - Fix auto-fixable issues</li>
+<li><code>pnpm format</code> - Format code with Biome</li>
+<li><code>pnpm format:check</code> - Check formatting without fixing</li>
+</ul>
+<h3>Code Quality</h3>
+<p>This project uses <a href="https://biomejs.dev/">Biome.js</a> for:</p>
+<ul>
+<li><strong>Linting</strong>: Catches potential errors and enforces code quality rules</li>
+<li><strong>Formatting</strong>: Consistent code formatting across the project</li>
+<li><strong>Import organization</strong>: Automatically sorts and organizes imports</li>
+</ul>
+<p>The Biome configuration is in <code>biome.json</code> and includes:</p>
+<ul>
+<li>Single quotes for strings</li>
+<li>2-space indentation</li>
+<li>100 character line width</li>
+<li>Strict TypeScript rules</li>
+<li>Git integration with <code>.gitignore</code> support</li>
+</ul>
+<h2>License</h2>
+<p>MIT </p>
+
+  </article>
+</body>
+</html>

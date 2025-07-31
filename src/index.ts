@@ -5,11 +5,13 @@ import {
   type WebpackPluginInstance,
 } from "webpack";
 
+type LogType = "log" | "info" | "warn" | "error" | "debug";
+
 export interface LogForwardOptions {
   /**
    * Array of log types to forward. Defaults to all types: ['log', 'info', 'warn', 'error', 'debug']
    */
-  logTypes?: string[];
+  logTypes?: LogType[];
   /**
    * Whether to enable the plugin. Defaults to true.
    */
@@ -57,6 +59,11 @@ export class WebpackLogForwardPlugin implements WebpackPluginInstance {
         "[WebpackLogForwardPlugin] This plugin suppose to be used with webpack dev server only, please DO NOT use it in production mode"
       );
     }
+
+    // Log that plugin is active and logs will be forwarded
+    console.log(
+      `[WebpackLogForwardPlugin] Plugin enabled! Browser logs will be forwarded to console. Log types: ${this.options.logTypes.join(', ')}`
+    );
 
     // Setup webpack dev server middleware
     this.setupDevServerMiddleware(compiler);
