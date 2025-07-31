@@ -4,6 +4,9 @@
   "description": "A webpack plugin that forwards browser console logs to terminal during development",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
