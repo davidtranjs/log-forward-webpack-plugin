@@ -18,8 +18,8 @@ module.exports = {
   },
   plugins: [
     new WebpackLogForwardPlugin({
-      // Example: Only forward errors and warnings
-      logTypes: ['error', 'warn', 'info'],
+      // Forward all log types for testing
+      logTypes: ['log', 'info', 'warn', 'error', 'debug'],
       prefix: '[Example App]',
       includeTimestamp: true,
     }),

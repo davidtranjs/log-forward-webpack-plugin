@@ -9,46 +9,29 @@
     <h1>WebpackLogForwardPlugin Example</h1>
     <p>Open the browser console and check the terminal to see forwarded logs!</p>
     
-    <button onclick="testLogs()">Test Console Logs</button>
-    <button onclick="testErrors()">Test Errors</button>
-    <button onclick="testObjects()">Test Objects</button>
+    <button onclick="testInfoLogs()">Test Info Logs</button>
+    <button onclick="testErrorLogs()">Test Error Logs</button>
+    <button onclick="testObjectLogs()">Test Object Logs</button>
+    <button onclick="testDebugLogs()">Test Debug Logs</button>
     
     <script src="bundle.js"></script>
     <script>
-        function testLogs() {
-            console.log('This is a regular log message');
+        function testInfoLogs() {
             console.info('This is an info message');
-            console.warn('This is a warning message');
+        }
+        
+        function testErrorLogs() {
             console.error('This is an error message');
+        }
+        
+        function testObjectLogs() {
+            const obj = { name: 'John', age: 30, city: 'New York' };
+            console.info('Object:', obj);
+        }
+        
+        function testDebugLogs() {
             console.debug('This is a debug message');
         }
-        
-        function testErrors() {
-            // Test unhandled error
-            setTimeout(() => {
-                throw new Error('This is an unhandled error');
-            }, 1000);
-            
-            // Test unhandled promise rejection
-            setTimeout(() => {
-                Promise.reject(new Error('This is an unhandled promise rejection'));
-            }, 2000);
-        }
-        
-        function testObjects() {
-            const obj = { name: 'John', age: 30, city: 'New York' };
-            const arr = [1, 2, 3, 4, 5];
-            
-            console.log('Object:', obj);
-            console.info('Array:', arr);
-            console.warn('Mixed data:', 'String', 123, obj, arr);
-        }
-        
-        // Auto-test on page load
-        setTimeout(() => {
-            console.log('Page loaded! Testing log forwarding...');
-            testLogs();
-        }, 1000);
     </script>
 </body>
 </html> 

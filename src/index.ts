@@ -1,4 +1,4 @@
-import { Compiler, WebpackPluginInstance } from 'webpack';
+import { Compiler, WebpackPluginInstance, Compilation, sources } from "webpack";
 
 export interface LogForwardOptions {
   /**
@@ -24,21 +24,16 @@ export class WebpackLogForwardPlugin implements WebpackPluginInstance {
 
   constructor(options: LogForwardOptions = {}) {
     this.options = {
-      logTypes: options.logTypes || ['log', 'info', 'warn', 'error', 'debug'],
+      logTypes: options.logTypes || ["log", "info", "warn", "error", "debug"],
       enabled: options.enabled !== false,
-      prefix: options.prefix || '[Browser]',
+      prefix: options.prefix || "[Browser]",
       includeTimestamp: options.includeTimestamp !== false,
     };
   }
 
   apply(compiler: Compiler): void {
     // Only apply in development mode
-    if (compiler.options.mode !== 'development') {
-      return;
-    }
-
-    // Only apply when dev server is running
-    if (!compiler.options.devServer) {
+    if (compiler.options.mode !== "development") {
       return;
     }
 
@@ -46,33 +41,41 @@ export class WebpackLogForwardPlugin implements WebpackPluginInstance {
       return;
     }
 
-    // Hook into the compilation process
-    compiler.hooks.afterCompile.tap('WebpackLogForwardPlugin', (compilation) => {
-      // Inject the log forwarding script into the bundle
-      this.injectLogForwardScript(compilation);
-    });
+    // Setup webpack dev server middleware
+    this.setupDevServerMiddleware(compiler);
 
-    // Hook into the dev server setup
-    compiler.hooks.afterEnvironment.tap('WebpackLogForwardPlugin', () => {
-      this.setupDevServerMiddleware(compiler);
-    });
-  }
+    // Inject the log forwarding code at the beginning of each chunk
+    compiler.hooks.thisCompilation.tap(
+      "WebpackLogForwardPlugin",
+      (compilation) => {
+        compilation.hooks.processAssets.tap(
+          {
+            name: "WebpackLogForwardPlugin",
+            stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE,
+          },
+          (assets) => {
+            const logForwardScript = this.generateLogForwardScript();
 
-  private injectLogForwardScript(compilation: any): void {
-    const logForwardScript = this.generateLogForwardScript();
-    
-    // Add the script to the compilation
-    compilation.hooks.additionalAssets.tap('WebpackLogForwardPlugin', () => {
-      compilation.assets['log-forward.js'] = {
-        source: () => logForwardScript,
-        size: () => logForwardScript.length,
-      };
-    });
+            // Add the script to all JS assets
+            Object.keys(assets).forEach((assetName) => {
+              if (assetName.endsWith(".js")) {
+                const asset = assets[assetName];
+                const newSource = new sources.ConcatSource(
+                  new sources.RawSource(logForwardScript + "\n"),
+                  asset
+                );
+                compilation.updateAsset(assetName, newSource);
+              }
+            });
+          }
+        );
+      }
+    );
   }
 
   private generateLogForwardScript(): string {
     const { logTypes, prefix, includeTimestamp } = this.options;
-    
+
     return `
 (function() {
   'use strict';
@@ -86,69 +89,111 @@ export class WebpackLogForwardPlugin implements WebpackPluginInstance {
   }
   
   function forwardLog(type, args) {
+    // Check if logging is enabled for this type
     if (!logTypes.includes(type)) return;
     
-    const timestamp = getTimestamp();
-    const message = Array.from(args).map(arg => {
-      if (typeof arg === 'object') {
-        try {
-          return JSON.stringify(arg);
-        } catch (e) {
-          return String(arg);
+    try {
+      const timestamp = getTimestamp();
+      const message = Array.from(args).map(arg => {
+        if (typeof arg === 'object' && arg !== null) {
+          try {
+            return JSON.stringify(arg, null, 2);
+          } catch (e) {
+            return String(arg);
+          }
         }
-      }
-      return String(arg);
-    }).join(' ');
-    
-    // Send to server via fetch
-    fetch('/__webpack_log_forward__', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+        return String(arg);
+      }).join(' ');
+      
+      // Only send if we have a message
+      if (!message.trim()) return;
+      
+      const logData = {
         type: type,
         message: message,
         timestamp: timestamp,
         prefix: prefix
-      })
-    }).catch(() => {
-      // Silently fail if server is not available
+      };
+      
+      // Send to server via fetch with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+      
+      fetch('/__webpack_log_forward__', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(logData),
+        signal: controller.signal
+      }).then(response => {
+        clearTimeout(timeoutId);
+        // Check if debug mode is enabled in a safe way
+        if (window.location.search.includes('debug=true')) {
+          const debugLog = document.createElement('div');
+          debugLog.textContent = '[DEBUG] Log forwarded: ' + type + ' - ' + response.status;
+          debugLog.style.cssText = 'position:fixed;top:0;right:0;background:black;color:white;padding:2px;font-size:10px;z-index:999999;';
+          document.body?.appendChild(debugLog);
+          setTimeout(() => debugLog.remove(), 2000);
+        }
+      }).catch(error => {
+        clearTimeout(timeoutId);
+      });
+    } catch (e) {
+      // Silently ignore any errors in log forwarding
+    }
+  }
+  
+  // SOLUTION: Use monkey patching at the very beginning before extensions load
+  // and create a transparent wrapper that doesn't break the console chain
+  
+  if (!window._webpackLogForwardInstalled) {
+    window._webpackLogForwardInstalled = true;
+    
+    // Store the absolute original console methods immediately
+    const originalConsole = Object.create(null);
+    ['log', 'info', 'warn', 'error', 'debug'].forEach(method => {
+      originalConsole[method] = console[method].bind(console);
+    });
+    
+    // Create transparent wrappers that preserve all behavior
+    ['log', 'info', 'warn', 'error', 'debug'].forEach(method => {
+      const original = originalConsole[method];
+      
+      // Replace with a function that behaves identically to the original
+      console[method] = function(...args) {
+        // Execute original console method with exact same behavior
+        try {
+          original(...args);
+        } catch (e) {
+          // If original throws, we still throw
+          throw e;
+        }
+        
+        // Asynchronously forward logs (completely separate from console execution)
+        requestAnimationFrame(() => {
+          try {
+            forwardLog(method, args);
+          } catch (e) {
+            // Silently ignore forwarding errors to avoid recursion
+          }
+        });
+      };
+      
+      // Preserve function properties and prototype
+      Object.setPrototypeOf(console[method], original);
+      Object.defineProperty(console[method], 'name', { value: method });
+      Object.defineProperty(console[method], 'length', { value: original.length });
     });
   }
   
-  // Override console methods
-  const originalConsole = {
-    log: console.log,
-    info: console.info,
-    warn: console.warn,
-    error: console.error,
-    debug: console.debug
-  };
-  
-  console.log = function(...args) {
-    originalConsole.log.apply(console, args);
-    forwardLog('log', args);
-  };
-  
-  console.info = function(...args) {
-    originalConsole.info.apply(console, args);
-    forwardLog('info', args);
-  };
-  
-  console.warn = function(...args) {
-    originalConsole.warn.apply(console, args);
-    forwardLog('warn', args);
-  };
-  
-  console.error = function(...args) {
-    originalConsole.error.apply(console, args);
-    forwardLog('error', args);
-  };
-  
-  console.debug = function(...args) {
-    originalConsole.debug.apply(console, args);
-    forwardLog('debug', args);
+  // Also provide a clean API for manual logging
+  window.webpackLog = {
+    log: (...args) => { console.log(...args); },
+    info: (...args) => { console.info(...args); },
+    warn: (...args) => { console.warn(...args); },
+    error: (...args) => { console.error(...args); },
+    debug: (...args) => { console.debug(...args); }
   };
   
   // Also handle unhandled errors
@@ -164,96 +209,142 @@ export class WebpackLogForwardPlugin implements WebpackPluginInstance {
   }
 
   private setupDevServerMiddleware(compiler: Compiler): void {
-    const devServer = compiler.options.devServer;
-    
-    if (!devServer) return;
+    const devServerOptions = compiler.options.devServer;
+    if (devServerOptions) {
+      console.log("WebpackLogForwardPlugin: Setting up middleware...");
 
-    // Add middleware to handle log forwarding and HTML injection
-    const originalSetupMiddlewares = devServer.setupMiddlewares;
-    
-    devServer.setupMiddlewares = (middlewares: any, devServer: any) => {
-      // Add our custom middleware for log forwarding
-      middlewares.unshift({
-        name: 'log-forward-endpoint',
-        path: '/__webpack_log_forward__',
-        middleware: (req: any, res: any, next: any) => {
-          if (req.method === 'POST') {
-            let body = '';
-            req.on('data', (chunk: Buffer) => {
-              body += chunk.toString();
-            });
-            req.on('end', () => {
-              try {
-                const logData = JSON.parse(body);
-                this.forwardLogToTerminal(logData);
-                res.status(200).json({ success: true });
-              } catch (error) {
-                res.status(400).json({ error: 'Invalid JSON' });
+      // Use onBeforeSetupMiddleware if available (older webpack-dev-server versions)
+      if (!devServerOptions.setupMiddlewares) {
+        devServerOptions.onBeforeSetupMiddleware = (devServer: any) => {
+          devServer.app.post(
+            "/__webpack_log_forward__",
+            (req: any, res: any) => {
+              let body = "";
+              req.on("data", (chunk: Buffer) => {
+                body += chunk.toString();
+              });
+              req.on("end", () => {
+                try {
+                  const logData = JSON.parse(body);
+                  this.forwardLogToTerminal(logData);
+                  res.json({ success: true });
+                } catch (error) {
+                  console.error("Log forward error:", error);
+                  res.status(400).json({ error: "Invalid JSON" });
+                }
+              });
+            }
+          );
+        };
+      } else {
+        // Store reference to the original setupMiddlewares function
+        const originalSetupMiddlewares = devServerOptions.setupMiddlewares;
+
+        // Override setupMiddlewares to add our middleware
+        devServerOptions.setupMiddlewares = (
+          middlewares: any,
+          devServer: any
+        ) => {
+          // Add middleware directly to express app if available
+          if (devServer.app) {
+            devServer.app.post(
+              "/__webpack_log_forward__",
+              (req: any, res: any) => {
+                let body = "";
+                req.on("data", (chunk: Buffer) => {
+                  body += chunk.toString();
+                });
+                req.on("end", () => {
+                  try {
+                    const logData = JSON.parse(body);
+                    this.forwardLogToTerminal(logData);
+                    res.json({ success: true });
+                  } catch (error) {
+                    console.error("Log forward error:", error);
+                    res.status(400).json({ error: "Invalid JSON" });
+                  }
+                });
               }
-            });
-          } else {
-            next();
+            );
           }
-        }
-      });
 
-      // Add our custom middleware for HTML injection
-      middlewares.unshift({
-        name: 'log-forward-html-injection',
-        path: '*',
-        middleware: (req: any, res: any, next: any) => {
-          if (req.path.endsWith('.html') || req.path === '/') {
-            const originalSend = res.send;
-            res.send = function(body: string) {
-              if (typeof body === 'string' && body.includes('</head>')) {
-                const scriptTag = '<script src="/log-forward.js"></script>';
-                body = body.replace('</head>', `${scriptTag}\n</head>`);
+          // Also try the middleware approach
+          middlewares.unshift({
+            name: "webpack-log-forward",
+            path: "/__webpack_log_forward__",
+            middleware: (req: any, res: any, next: any) => {
+              if (
+                req.method === "POST" &&
+                req.url === "/__webpack_log_forward__"
+              ) {
+                let body = "";
+                req.on("data", (chunk: Buffer) => {
+                  body += chunk.toString();
+                });
+                req.on("end", () => {
+                  try {
+                    const logData = JSON.parse(body);
+                    this.forwardLogToTerminal(logData);
+                    res.writeHead(200, {
+                      "Content-Type": "application/json",
+                      "Access-Control-Allow-Origin": "*",
+                      "Access-Control-Allow-Methods": "POST",
+                      "Access-Control-Allow-Headers": "Content-Type",
+                    });
+                    res.end(JSON.stringify({ success: true }));
+                  } catch (error) {
+                    console.error("Log forward error:", error);
+                    res.writeHead(400, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify({ error: "Invalid JSON" }));
+                  }
+                });
+              } else {
+                next();
               }
-              return originalSend.call(this, body);
-            };
-          }
-          next();
-        }
-      });
+            },
+          });
 
-      if (originalSetupMiddlewares) {
-        return originalSetupMiddlewares(middlewares, devServer);
+          // Call the original setupMiddlewares if it exists
+          if (originalSetupMiddlewares) {
+            return originalSetupMiddlewares(middlewares, devServer);
+          }
+
+          return middlewares;
+        };
       }
-      
-      return middlewares;
-    };
+    }
   }
 
   private forwardLogToTerminal(logData: any): void {
     const { type, message, timestamp, prefix } = logData;
-    
+
     // Color codes for different log types
     const colors = {
-      log: '\x1b[36m',    // Cyan
-      info: '\x1b[32m',   // Green
-      warn: '\x1b[33m',   // Yellow
-      error: '\x1b[31m',  // Red
-      debug: '\x1b[35m',  // Magenta
+      log: "\x1b[36m", // Cyan
+      info: "\x1b[32m", // Green
+      warn: "\x1b[33m", // Yellow
+      error: "\x1b[31m", // Red
+      debug: "\x1b[35m", // Magenta
     };
-    
-    const reset = '\x1b[0m';
+
+    const reset = "\x1b[0m";
     const color = colors[type as keyof typeof colors] || colors.log;
-    
-    const timestampStr = timestamp || '';
+
+    const timestampStr = timestamp || "";
     const logMessage = `${color}${prefix} ${type.toUpperCase()}:${reset} ${timestampStr}${message}`;
-    
+
     // Use console methods to maintain proper formatting
     switch (type) {
-      case 'error':
+      case "error":
         console.error(logMessage);
         break;
-      case 'warn':
+      case "warn":
         console.warn(logMessage);
         break;
-      case 'info':
+      case "info":
         console.info(logMessage);
         break;
-      case 'debug':
+      case "debug":
         console.debug(logMessage);
         break;
       default:
@@ -262,4 +353,4 @@ export class WebpackLogForwardPlugin implements WebpackPluginInstance {
   }
 }
 
-export default WebpackLogForwardPlugin; 
+export default WebpackLogForwardPlugin;
